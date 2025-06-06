@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>تسجيل دخول بجوجل</title>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <script>
+    function handleCredentialResponse(response) {
+      // هنا ممكن تستخدم response.credential (JWT token) عشان تأكد الدخول أو تبعت البيانات للسيرفر
+      console.log("Encoded JWT ID token: " + response.credential);
+      document.getElementById("result").innerText = "تم تسجيل الدخول بنجاح!";
+    }
+
+    window.onload = function () {
+      google.accounts.id.initialize({
+        client_id: "448184436252-5css5vpo6vck5dqj1d2hshs2nddvsc6r.apps.googleusercontent.com",
+        callback: handleCredentialResponse
+      });
+
+      google.accounts.id.renderButton(
+        document.getElementById("buttonDiv"),
+        { theme: "outline", size: "large", locale: "ar" }  // إعدادات شكل الزر
+      );
+
+      google.accounts.id.prompt(); // تظهر مربع تسجيل الدخول تلقائياً لو ممكن
+    };
+  </script>
+</head>
+<body>
+  <h2>تسجيل دخول بجوجل</h2>
+  <div id="buttonDiv"></div>
+  <p id="result"></p>
+</body>
+</html>
