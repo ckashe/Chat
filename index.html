@@ -8,7 +8,7 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
     button { margin: 5px; padding: 10px 15px; font-size: 16px; }
-    pre { background: #eee; padding: 10px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+    pre { background: #eee; padding: 10px; max-height: 300px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -55,25 +55,23 @@
       scope: SCOPES,
       callback: (tokenResponse) => {
         if (tokenResponse.error) {
-          appendOutput('❌ فشل في الحصول على التوكن.');
+          appendOutput('❌ حدث خطأ في الحصول على التوكن.');
           return;
         }
-
         access_token = tokenResponse.access_token;
-
-        // ✨ ربط التوكن مع gapi:
-        gapi.load('client', async () => {
-          await gapi.client.init({
-            discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
-          });
-          gapi.client.setToken({ access_token });
-
-          appendOutput('✅ تم تسجيل الدخول بنجاح.');
-          sendPhotosButton.style.display = 'inline-block';
-          sendPhotosButton.onclick = sendPhotosToTelegram;
-        });
+        gapi.load('client', initializeGapiClient);
       }
     }).requestAccessToken();
+  }
+
+  async function initializeGapiClient() {
+    await gapi.client.init({
+      discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
+    });
+
+    appendOutput('✅ تم تسجيل الدخول بنجاح.');
+    sendPhotosButton.style.display = 'inline-block';
+    sendPhotosButton.onclick = sendPhotosToTelegram;
   }
 
   async function listImages() {
@@ -85,14 +83,14 @@
       });
       const files = response.result.files;
       if (!files || files.length === 0) {
-        appendOutput('⚠️ لم يتم العثور على صور في Google Drive.');
+        appendOutput('❌ لم يتم العثور على صور في Google Drive.');
         return [];
       } else {
-        appendOutput(`📸 تم العثور على ${files.length} صورة.`);
+        appendOutput(`✅ تم العثور على ${files.length} صورة.`);
         return files;
       }
     } catch (error) {
-      appendOutput('❌ خطأ في جلب الصور: ' + JSON.stringify(error));
+      appendOutput('❌ خطأ في جلب الصور: ' + error.message);
       return [];
     }
   }
@@ -102,7 +100,7 @@
   }
 
   async function sendPhotoToTelegram(fileName, fileUrl) {
-    appendOutput(`⬆️ جاري إرسال الصورة: ${fileName}`);
+    appendOutput(`📤 جاري إرسال الصورة: ${fileName}`);
     try {
       const response = await fetch(fileUrl, {
         headers: {
@@ -113,10 +111,10 @@
 
       const formData = new FormData();
       formData.append('chat_id', TELEGRAM_CHAT_ID);
-      formData.append('caption', `📷 صورة من Google Drive:\n${fileName}`);
-      formData.append('photo', blob, fileName);
+      formData.append('caption', `📸 صورة من Google Drive: ${fileName}`);
+      formData.append('document', blob, fileName);  // <-- إرسال كـ document بدل photo
 
-      const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+      const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
         method: 'POST',
         body: formData
       });
@@ -125,7 +123,7 @@
       if (telegramResult.ok) {
         appendOutput(`✅ تم إرسال الصورة: ${fileName}`);
       } else {
-        appendOutput(`❌ خطأ من Telegram: ${telegramResult.description}`);
+        appendOutput(`❌ خطأ من تليجرام: ${telegramResult.description}`);
       }
     } catch (error) {
       appendOutput(`❌ خطأ في الإرسال: ${error.message}`);
