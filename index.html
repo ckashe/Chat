@@ -3,6 +3,7 @@
 <head>
   <title>Send Google Drive Images to Telegram Bot</title>
   <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <h2>Send all images from Google Drive to Telegram Bot</h2>
@@ -44,7 +45,14 @@
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        callback: '', // سيتم التعيين لاحقًا
+        callback: async (resp) => {
+          if (resp.error !== undefined) {
+            throw (resp);
+          }
+          document.getElementById('signout_button').style.display = 'block';
+          document.getElementById('authorize_button').style.display = 'none';
+          await listImagesAndSend();
+        },
       });
       gisInited = true;
       maybeEnableButtons();
@@ -58,15 +66,6 @@
 
     // تسجيل الدخول
     function handleAuthClick() {
-      tokenClient.callback = async (resp) => {
-        if (resp.error !== undefined) {
-          throw (resp);
-        }
-        document.getElementById('signout_button').style.display = 'block';
-        document.getElementById('authorize_button').style.display = 'none';
-        listImagesAndSend();
-      };
-
       if (gapi.client.getToken() === null) {
         // اطلب الصلاحيات
         tokenClient.requestAccessToken({prompt: 'consent'});
@@ -113,31 +112,45 @@
       document.getElementById('output').textContent += 'All images sent!';
     }
 
-    // إرسال صورة للبوت في تلغرام (نستخدم رابط تحميل مباشر)
+    // إرسال صورة للبوت في تلغرام (نرسل الملف كـ Blob)
     async function sendImageToTelegram(fileId, fileName) {
       try {
-        // رابط تنزيل الصورة (يحتاج توكن وصول)
         const accessToken = gapi.client.getToken().access_token;
-        const fileUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
+        const fileUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
 
-        // نرسل للصورة عبر API تليجرام (sendPhoto)
-        const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+        // تحميل الصورة كـ Blob مع توكن التفويض
+        const response = await fetch(fileUrl, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        });
+        if (!response.ok) throw new Error('Failed to fetch image from Drive');
 
+        const blob = await response.blob();
+
+        // تجهيز formData للإرسال
         const formData = new FormData();
         formData.append('chat_id', TELEGRAM_CHAT_ID);
-        formData.append('photo', fileUrl);
+        formData.append('photo', blob, fileName);
         formData.append('caption', fileName);
 
-        await fetch(telegramApiUrl, {
+        const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+
+        const telegramResponse = await fetch(telegramApiUrl, {
           method: 'POST',
           body: formData,
         });
+
+        if (!telegramResponse.ok) {
+          const errorText = await telegramResponse.text();
+          throw new Error(`Telegram API error: ${errorText}`);
+        }
       } catch (err) {
         document.getElementById('output').textContent += `Error sending ${fileName}: ${err.message}\n`;
       }
     }
 
-    // تحميل مكتبات Google APIs
+    // تحميل مكتبات Google APIs عند فتح الصفحة
     window.onload = function() {
       gapiLoaded();
       gisLoaded();
@@ -146,6 +159,5 @@
     }
   </script>
 
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
