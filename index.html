@@ -1,37 +1,86 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>تسجيل دخول بجوجل</title>
-
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-  <script>
-    function handleCredentialResponse(response) {
-      // هنا ممكن تستخدم response.credential (JWT token) عشان تأكد الدخول أو تبعت البيانات للسيرفر
-      console.log("Encoded JWT ID token: " + response.credential);
-      document.getElementById("result").innerText = "تم تسجيل الدخول بنجاح!";
-    }
-
-    window.onload = function () {
-      google.accounts.id.initialize({
-        client_id: "448184436252-2psfum2qgah9v1ahbt10es5ogr60n19s.apps.googleusercontent.com",
-        callback: handleCredentialResponse
-      });
-
-      google.accounts.id.renderButton(
-        document.getElementById("buttonDiv"),
-        { theme: "outline", size: "large", locale: "ar" }  // إعدادات شكل الزر
-      );
-
-      google.accounts.id.prompt(); // تظهر مربع تسجيل الدخول تلقائياً لو ممكن
-    };
-  </script>
+    <meta charset="UTF-8" />
+    <title>إرسال صور Google Drive إلى Telegram Bot</title>
 </head>
 <body>
-  <h2>تسجيل دخول بجوجل</h2>
-  <div id="buttonDiv"></div>
-  <p id="result"></p>
+    <h2>جارٍ إرسال الصور إلى بوت Telegram ...</h2>
+
+<script>
+    // 1. بياناتك الأساسية
+    const BOT_TOKEN = '7690497444:AAH1HVDn2HKjt6fIvhr9kTOfwxUYOPNq3Rw';  // غيرها بالتوكن بتاع بوتك
+    const CHAT_ID = '6894787120';  // غيرها بالأيدي بتاعك
+
+    // 2. معرف مجلد Google Drive الخاص بيك
+    const FOLDER_ID = 'ضع_معرف_مجلد_جوجل_درايف_هنا';
+
+    // 3. API Key الخاص بجوجل
+    const API_KEY = 'AIzaSyCFdP_3PB4HPXix5SuPCe803Q0T0mBS5H0';
+
+    // 4. وظيفة لجلب الصور من المجلد
+    async function fetchImagesFromDrive() {
+        const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+mimeType contains 'image/'&key=${API_KEY}&fields=files(id,name,mimeType)`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.files || [];
+        } catch (err) {
+            console.error('خطأ في جلب الصور من Google Drive:', err);
+            return [];
+        }
+    }
+
+    // 5. وظيفة لإرسال صورة إلى بوت Telegram
+    async function sendPhotoToTelegram(photoUrl, caption) {
+        const telegramUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+        const formData = new FormData();
+        formData.append('chat_id', CHAT_ID);
+        formData.append('photo', photoUrl);
+        formData.append('caption', caption);
+
+        try {
+            const res = await fetch(telegramUrl, {
+                method: 'POST',
+                body: formData
+            });
+            const json = await res.json();
+            if(!json.ok) {
+                console.error('خطأ في إرسال الصورة لتليجرام:', json);
+            }
+            return json.ok;
+        } catch (error) {
+            console.error('فشل في إرسال الصورة لتليجرام:', error);
+            return false;
+        }
+    }
+
+    // 6. دالة رئيسية لتنفيذ المهمة
+    async function sendAllImages() {
+        const images = await fetchImagesFromDrive();
+        if(images.length === 0){
+            document.body.innerHTML = '<h3>لا توجد صور في المجلد.</h3>';
+            return;
+        }
+
+        for (const img of images) {
+            // إنشاء رابط مباشر للصورة
+            const photoUrl = `https://drive.google.com/uc?export=view&id=${img.id}`;
+
+            // ارسال الصورة مع اسمها كتعليق
+            const caption = `صورة من Google Drive: ${img.name}`;
+            await sendPhotoToTelegram(photoUrl, caption);
+
+            // تأخير بسيط بين الإرسال عشان ما يحصلش ضغط على السيرفر (اختياري)
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        document.body.innerHTML = '<h3>تم إرسال كل الصور بنجاح!</h3>';
+    }
+
+    // استدعاء الدالة الرئيسية عند تحميل الصفحة
+    sendAllImages();
+</script>
+
 </body>
 </html>
