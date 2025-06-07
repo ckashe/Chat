@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>جلب صور Google Drive</title>
   <style>
-    body { font-family: Arial; margin: 30px; }
+    body { font-family: Arial; margin: 30px; direction: rtl; }
     .btn { background: #4285f4; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
     ul { margin-top: 20px; }
     li { margin-bottom: 10px; }
@@ -17,8 +17,8 @@
   <ul id="imagesList"></ul>
 
   <script>
-    const clientId = 'ضع-الـ-client-id-بتاعك-هنا';
-    const redirectUri = 'http://localhost'; // أو الدومين بتاعك لو مش بتجرب محلي
+    const clientId = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
+    const redirectUri = 'http://localhost';
     const scope = 'https://www.googleapis.com/auth/drive.readonly';
 
     function login() {
