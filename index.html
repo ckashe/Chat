@@ -1,30 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
-  <meta charset="UTF-8" />
-  <title>نموذج تحقق من توكن Google OAuth</title>
+  <meta charset="UTF-8">
+  <title>جلب صور Google Drive</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .btn { padding: 10px 20px; background: #4285f4; color: white; border: none; cursor: pointer; border-radius: 5px; }
-    #tokenDisplay { margin-top: 20px; word-break: break-all; }
+    body { font-family: Arial; margin: 30px; }
+    .btn { background: #4285f4; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+    ul { margin-top: 20px; }
+    li { margin-bottom: 10px; }
   </style>
 </head>
 <body>
-  <h2>تسجيل الدخول عبر جوجل (نموذج بسيط)</h2>
-
-  <button class="btn" onclick="loginWithGoogle()">تسجيل الدخول</button>
-
-  <div id="status" style="margin-top: 20px;">لم يتم تسجيل الدخول بعد</div>
-  <div id="tokenDisplay"></div>
+  <h2>تسجيل الدخول إلى Google</h2>
+  <button class="btn" onclick="login()">تسجيل الدخول</button>
+  <div id="status"></div>
+  <ul id="imagesList"></ul>
 
   <script>
-    const clientId = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
-    const redirectUri = 'https://ckashe.github.io/Chat/';
+    const clientId = 'ضع-الـ-client-id-بتاعك-هنا';
+    const redirectUri = 'http://localhost'; // أو الدومين بتاعك لو مش بتجرب محلي
     const scope = 'https://www.googleapis.com/auth/drive.readonly';
 
-    function loginWithGoogle() {
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&include_granted_scopes=true&state=login`;
-      window.location.href = authUrl;
+    function login() {
+      const url = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&include_granted_scopes=true&state=auth`;
+      window.location.href = url;
     }
 
     function getAccessTokenFromUrl() {
@@ -33,13 +32,52 @@
       return params.get('access_token');
     }
 
+    async function fetchDriveImages(token) {
+      document.getElementById('status').innerText = 'جاري تحميل الصور...';
+
+      const res = await fetch('https://www.googleapis.com/drive/v3/files?' + new URLSearchParams({
+        pageSize: '50',
+        fields: 'files(id,name,mimeType,webViewLink)',
+        q: "mimeType contains 'image/'"
+      }), {
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
+
+      if (!res.ok) {
+        document.getElementById('status').innerText = 'فشل التحميل: ' + res.statusText;
+        return;
+      }
+
+      const data = await res.json();
+      const files = data.files;
+
+      if (!files.length) {
+        document.getElementById('status').innerText = 'لا توجد صور.';
+        return;
+      }
+
+      document.getElementById('status').innerText = 'تم تحميل الصور:';
+      const list = document.getElementById('imagesList');
+      list.innerHTML = '';
+
+      files.forEach(file => {
+        const li = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = file.webViewLink;
+        link.target = '_blank';
+        link.textContent = file.name;
+        li.appendChild(link);
+        list.appendChild(li);
+      });
+    }
+
     window.onload = () => {
       const token = getAccessTokenFromUrl();
       if (token) {
-        // نظف الرابط من التوكن
         history.replaceState(null, '', window.location.pathname);
-        document.getElementById('status').innerText = 'تم تسجيل الدخول بنجاح!';
-        document.getElementById('tokenDisplay').innerText = 'Access Token: ' + token;
+        fetchDriveImages(token);
       }
     };
   </script>
