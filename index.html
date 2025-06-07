@@ -1,25 +1,17 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>اختبار إرسال</title>
-</head>
 <body>
-  <h3>🔁 إرسال رسالة إلى السيرفر</h3>
-  <button onclick="sendMessage()">إرسال</button>
-
+  <button onclick="sendMessage()">أرسل رسالة</button>
   <script>
     function sendMessage() {
-      fetch('http://10.71.152.114:8080', {
+      fetch('http://localhost:8080', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ message: 'تم الإرسال من الهاتف ✅' })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: "تجربة من المتصفح" })
       })
       .then(res => res.text())
-      .then(txt => alert('📨 الرد من السيرفر:\n' + txt))
-      .catch(err => alert('❌ خطأ في الاتصال بالسيرفر'));
+      .then(data => alert('تم الإرسال: ' + data))
+      .catch(err => alert('خطأ في الاتصال: ' + err));
     }
   </script>
 </body>
