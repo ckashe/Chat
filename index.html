@@ -1,73 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Google Drive Image Sender</title>
-  <script src="https://apis.google.com/js/api.js"></script>
+  <title>Google Drive Image Sender - GIS</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <button id="authorize_button" style="display:none;">تسجيل دخول جوجل</button>
-  <button id="signout_button" style="display:none;">تسجيل خروج</button>
+  <div id="g_id_onload"
+       data-client_id="869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com"
+       data-callback="handleCredentialResponse"
+       data-scope="https://www.googleapis.com/auth/drive.readonly"
+       data-auto_prompt="false">
+  </div>
 
-  <div id="content"></div>
+  <div class="g_id_signin" data-type="standard"></div>
+
+  <div id="content">من فضلك قم بتسجيل الدخول للوصول إلى الصور</div>
 
   <script>
-    const CLIENT_ID = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+    let accessToken = '';
 
-    const authorizeButton = document.getElementById('authorize_button');
-    const signoutButton = document.getElementById('signout_button');
-    const content = document.getElementById('content');
+    function handleCredentialResponse(response) {
+      // JWT ID token - مش هنعتمد عليها عشان الوصول للـ API
+      // لازم نعمل OAuth flow للحصول على Access Token منفصل
+      document.getElementById('content').innerText = 'جارٍ الحصول على صلاحية الوصول...';
 
-    function handleClientLoad() {
-      gapi.load('client:auth2', initClient);
+      // نستخدم رمز ID token لتحويله إلى Access Token (محتاج سيرفر)
+      // عشان كده هنا هنستخدم طريقة مبسطة عبر OAuth2 implicit flow من جديد
+      // أو نستخدم Google API Client Library بشكل محدود مع token جديد
+
+      // الحل هنا: هنعمل طلب OAuth2 authorization يدوي للحصول على Access Token
+      // أو نستعمل سيرفر Node.js (في الخطوة الجاية) لإكمال flow
+
+      // لو عايز نكمل هنا بالمتصفح فقط، محتاج طريقة أخرى (هي معقدة شوية)
+
+      // عشان نبدأ نستخدم API, ممكن نعمل مثل الآتي:
+      startOAuth2Flow();
     }
 
-    function initClient() {
-      gapi.client.init({
-        clientId: CLIENT_ID,
-        scope: SCOPES,
-      }).then(() => {
-        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-
-        authorizeButton.onclick = () => gapi.auth2.getAuthInstance().signIn();
-        signoutButton.onclick = () => gapi.auth2.getAuthInstance().signOut();
-      }, (error) => {
-        content.innerText = JSON.stringify(error, null, 2);
+    function startOAuth2Flow() {
+      const params = new URLSearchParams({
+        client_id: '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com',
+        redirect_uri: window.location.origin + '/oauth2callback.html',
+        response_type: 'token',
+        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        include_granted_scopes: 'true',
+        state: 'pass-through value'
       });
+      window.location = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
     }
-
-    function updateSigninStatus(isSignedIn) {
-      if (isSignedIn) {
-        authorizeButton.style.display = 'none';
-        signoutButton.style.display = 'block';
-        listFiles();
-      } else {
-        authorizeButton.style.display = 'block';
-        signoutButton.style.display = 'none';
-        content.innerText = 'من فضلك قم بتسجيل الدخول للوصول إلى الصور';
-      }
-    }
-
-    function listFiles() {
-      gapi.client.drive.files.list({
-        'pageSize': 50,
-        'fields': 'files(id, name, mimeType)',
-        'q': "mimeType contains 'image/'"
-      }).then(function(response) {
-        const files = response.result.files;
-        if (files && files.length > 0) {
-          content.innerHTML = 'الصور التي سيتم إرسالها:<br><ul>' +
-            files.map(f => `<li>${f.name} (ID: ${f.id})</li>`).join('') + '</ul>';
-
-          // هنا يمكن ترسل IDs الصور للخادم (Node.js) عشان تبعتهم للتليجرام
-        } else {
-          content.innerText = 'لا توجد صور في Google Drive.';
-        }
-      });
-    }
-
-    handleClientLoad();
   </script>
 </body>
 </html>
