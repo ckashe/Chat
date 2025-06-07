@@ -13,17 +13,19 @@
     const REDIRECT_URI = 'https://ckashe.github.io/Chat/';
     const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
+    const SERVER_PORT = '8000';
+
     const loginBtn = document.getElementById('loginBtn');
 
-    // عند وجود access_token في الرابط
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get('access_token');
 
     if (accessToken) {
       document.body.innerHTML += "<p>✅ تم الحصول على Access Token</p>";
 
-      // إرسال التوكن إلى السيرفر
-      fetch('http://192.168.1.5:8000/save_token', {
+      const serverUrl = `http://${window.location.hostname}:${SERVER_PORT}/save_token`;
+
+      fetch(serverUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ access_token: accessToken })
