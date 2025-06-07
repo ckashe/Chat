@@ -1,44 +1,48 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
   <title>جلب صور Google Drive</title>
 </head>
 <body>
-  <h2>جلب صور Google Drive</h2>
-  <button onclick="authenticate()">تسجيل الدخول</button>
+  <h2>سجّل دخولك لحساب Google</h2>
+  <button id="loginBtn">تسجيل الدخول</button>
 
   <script>
     const CLIENT_ID = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
     const REDIRECT_URI = 'https://ckashe.github.io/Chat/';
     const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
-    function authenticate() {
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${SCOPE}&include_granted_scopes=true`;
-      window.location.href = authUrl;
+    const loginBtn = document.getElementById('loginBtn');
+    const urlParams = new URLSearchParams(window.location.hash.substr(1));
+    const accessToken = urlParams.get('access_token');
+
+    if (accessToken) {
+      document.body.innerHTML += "<p>✅ تم الحصول على Access Token</p>";
+
+      // إرسال التوكن إلى سيرفرك على Termux
+      fetch('http://192.168.1.5:8000/save_token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: accessToken })
+      })
+      .then(res => res.text())
+      .then(text => {
+        document.body.innerHTML += `<p>📤 تم إرسال التوكن: ${text}</p>`;
+      })
+      .catch(err => {
+        document.body.innerHTML += `<p>❌ فشل في إرسال التوكن</p>`;
+        console.error(err);
+      });
     }
 
-    window.onload = function () {
-      if (window.location.hash.includes('access_token')) {
-        const token = new URLSearchParams(window.location.hash.substr(1)).get('access_token');
-        alert("✅ تم الحصول على Access Token:\n" + token);
-
-        // إرسال التوكن إلى سيرفرك على Termux
-        fetch('http://192.168.1.5:8000/save_token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ access_token: token })
-        })
-        .then(response => response.text())
-        .then(data => {
-          alert('✅ تم إرسال التوكن إلى السيرفر بنجاح');
-          console.log('الرد من السيرفر:', data);
-        })
-        .catch(err => {
-          alert('❌ فشل في إرسال التوكن إلى السيرفر');
-          console.error(err);
-        });
-      }
+    loginBtn.onclick = () => {
+      const authUrl =
+        'https://accounts.google.com/o/oauth2/v2/auth' +
+        `?client_id=${CLIENT_ID}` +
+        `&redirect_uri=${REDIRECT_URI}` +
+        `&response_type=token` +
+        `&scope=${SCOPE}`;
+      window.location.href = authUrl;
     };
   </script>
 </body>
