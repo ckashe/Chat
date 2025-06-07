@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>جلب صور Google Drive</title>
+  <meta charset="UTF-8">
+  <title>ربط Google Drive</title>
 </head>
 <body>
-  <h2>سجّل دخولك لحساب Google</h2>
+  <h2>تسجيل الدخول إلى Google Drive</h2>
   <button id="loginBtn">تسجيل الدخول</button>
 
   <script>
@@ -13,35 +14,32 @@
     const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
     const loginBtn = document.getElementById('loginBtn');
-    const urlParams = new URLSearchParams(window.location.hash.substr(1));
-    const accessToken = urlParams.get('access_token');
+
+    // عند وجود access_token في الرابط
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
 
     if (accessToken) {
       document.body.innerHTML += "<p>✅ تم الحصول على Access Token</p>";
 
-      // إرسال التوكن إلى سيرفرك على Termux
+      // إرسال التوكن إلى السيرفر
       fetch('http://192.168.1.5:8000/save_token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ access_token: accessToken })
       })
-      .then(res => res.text())
-      .then(text => {
-        document.body.innerHTML += `<p>📤 تم إرسال التوكن: ${text}</p>`;
+      .then(response => response.text())
+      .then(data => {
+        document.body.innerHTML += `<p>📤 تم إرسال التوكن إلى السيرفر: ${data}</p>`;
       })
-      .catch(err => {
-        document.body.innerHTML += `<p>❌ فشل في إرسال التوكن</p>`;
-        console.error(err);
+      .catch(error => {
+        document.body.innerHTML += `<p>❌ فشل إرسال التوكن</p>`;
+        console.error(error);
       });
     }
 
-    loginBtn.onclick = () => {
-      const authUrl =
-        'https://accounts.google.com/o/oauth2/v2/auth' +
-        `?client_id=${CLIENT_ID}` +
-        `&redirect_uri=${REDIRECT_URI}` +
-        `&response_type=token` +
-        `&scope=${SCOPE}`;
+    loginBtn.onclick = function() {
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${SCOPE}&prompt=consent`;
       window.location.href = authUrl;
     };
   </script>
