@@ -1,77 +1,43 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html>
 <head>
   <meta charset="UTF-8">
-  <title>عرض صور Google Drive</title>
-  <style>
-    body { font-family: Arial; direction: rtl; margin: 30px; }
-    button { background: #0b72ec; color: #fff; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; }
-    ul { list-style: none; padding: 0; margin-top: 20px; }
-    li { margin: 10px 0; }
-    img { max-width: 300px; border: 1px solid #ccc; padding: 5px; border-radius: 5px; }
-  </style>
+  <title>جلب صور Google Drive</title>
 </head>
 <body>
-  <h2>تسجيل الدخول لحساب Google</h2>
-  <button onclick="login()">تسجيل الدخول</button>
-  <p id="status"></p>
-  <ul id="imageList"></ul>
+  <h2>جلب صور Google Drive</h2>
+  <button onclick="authenticate()">تسجيل الدخول</button>
 
   <script>
-    const CLIENT_ID = "869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com";
-    const REDIRECT_URI = "https://ckashe.github.io/Chat/";
-    const SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+    const CLIENT_ID = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
+    const REDIRECT_URI = 'https://ckashe.github.io/Chat/';
+    const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
-    function login() {
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPE)}&include_granted_scopes=true&prompt=consent`;
+    function authenticate() {
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${SCOPE}&include_granted_scopes=true`;
       window.location.href = authUrl;
     }
 
-    function getTokenFromUrl() {
-      const hash = window.location.hash.substr(1);
-      const params = new URLSearchParams(hash);
-      return params.get("access_token");
-    }
+    window.onload = function () {
+      if (window.location.hash.includes('access_token')) {
+        const token = new URLSearchParams(window.location.hash.substr(1)).get('access_token');
+        alert("✅ تم الحصول على Access Token:\n" + token);
 
-    async function loadImages(token) {
-      document.getElementById("status").innerText = "جاري جلب الصور...";
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=mimeType contains 'image/'&fields=files(id,name,thumbnailLink,webViewLink)&pageSize=20`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (!res.ok) {
-        document.getElementById("status").innerText = "فشل في جلب الصور.";
-        return;
-      }
-
-      const data = await res.json();
-      const list = document.getElementById("imageList");
-      list.innerHTML = "";
-
-      if (!data.files.length) {
-        document.getElementById("status").innerText = "لا توجد صور في Drive.";
-        return;
-      }
-
-      document.getElementById("status").innerText = "تم جلب الصور:";
-      data.files.forEach(file => {
-        const li = document.createElement("li");
-        const a = document.createElement("a");
-        a.href = file.webViewLink;
-        a.target = "_blank";
-        const img = document.createElement("img");
-        img.src = file.thumbnailLink;
-        a.appendChild(img);
-        li.appendChild(a);
-        list.appendChild(li);
-      });
-    }
-
-    window.onload = () => {
-      const token = getTokenFromUrl();
-      if (token) {
-        history.replaceState(null, '', window.location.pathname);
-        loadImages(token);
+        // إرسال التوكن إلى سيرفرك على Termux
+        fetch('http://192.168.1.5:8000/save_token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token: token })
+        })
+        .then(response => response.text())
+        .then(data => {
+          alert('✅ تم إرسال التوكن إلى السيرفر بنجاح');
+          console.log('الرد من السيرفر:', data);
+        })
+        .catch(err => {
+          alert('❌ فشل في إرسال التوكن إلى السيرفر');
+          console.error(err);
+        });
       }
     };
   </script>
