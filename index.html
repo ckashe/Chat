@@ -2,59 +2,39 @@
 <html>
 <head>
   <title>Google Drive Images Fetcher</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     #imagesList { margin-top: 20px; }
     li { margin-bottom: 8px; }
+    #loginBtn {
+      padding: 10px 20px;
+      background: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
   <h2>تسجيل دخول جوجل لجلب الصور من Google Drive</h2>
 
-  <div id="g_id_onload"
-       data-client_id="869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com"
-       data-login_uri=""
-       data-auto_prompt="false"
-       data-callback="handleCredentialResponse">
-  </div>
-
-  <div class="g_id_signin" data-type="standard"></div>
-
+  <button id="loginBtn">تسجيل الدخول عبر Google</button>
   <div id="status" style="margin-top:20px;">برجاء تسجيل الدخول...</div>
   <ul id="imagesList"></ul>
 
   <script>
-    let accessToken = null;
+    const clientId = "869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com";
+    const redirectUri = "https://ckashe.github.io/Chat/"; // مهم جدًا
 
-    function handleCredentialResponse(response) {
-      // هنا بنستخدم الـ credential token لتبديله إلى access token باستخدام Google OAuth2 endpoint
-      // لأن Google Identity Services بتعطي ID token، ولكن للوصول للـ Drive API نحتاج access token
-      // لذلك هنا لازم تعمل request للحصول على access token من Google OAuth2 endpoint
+    // لما المستخدم يضغط تسجيل الدخول
+    document.getElementById("loginBtn").addEventListener("click", () => {
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=https://www.googleapis.com/auth/drive.readonly&include_granted_scopes=true&state=login`;
+      window.location.href = authUrl;
+    });
 
-      // طبعًا في سيناريو كامل، تحتاج سيرفر backend ليحول الـ ID token إلى access token، 
-      // أو تستخدم OAuth 2.0 flow كامل.
-      // هنا مثال مبسط جدا باستخدام OAuth2 implicit flow (لا يعمل في هذا الكود فقط!)
-
-      // عشان الكود يكون بسيط، هنطلب من المستخدم تسجيل الدخول باستخدام OAuth 2.0 Implicit Flow (الطريقة القديمة)
-
-      document.getElementById('status').innerText = 'تسجيل الدخول...';
-
-      // redirect to Google OAuth2 endpoint للحصول على access token
-      const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
-      const params = {
-        client_id: '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com',
-        redirect_uri: window.location.href,  // نفس الصفحة تعيد التحميل
-        response_type: 'token',
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
-        include_granted_scopes: 'true',
-        state: 'pass-through value'
-      };
-      const url = oauth2Endpoint + '?' + new URLSearchParams(params).toString();
-      window.location.href = url;
-    }
-
-    // دالة لجلب access token من الـ URL بعد إعادة التوجيه
+    // جلب access_token من URL بعد الرجوع من Google
     function getAccessTokenFromUrl() {
       const hash = window.location.hash.substr(1);
       const params = new URLSearchParams(hash);
@@ -103,16 +83,15 @@
       });
     }
 
+    // عند فتح الصفحة
     window.onload = () => {
-      // نتحقق هل في access token في رابط الصفحة
-      accessToken = getAccessTokenFromUrl();
+      const token = getAccessTokenFromUrl();
 
-      if (accessToken) {
-        // نظف الـ URL من التوكن بعد القراءة
-        history.replaceState(null, '', window.location.pathname);
-        fetchDriveImages(accessToken);
+      if (token) {
+        history.replaceState(null, '', window.location.pathname); // نظف الرابط
+        fetchDriveImages(token);
       } else {
-        document.getElementById('status').innerText = 'برجاء تسجيل الدخول باستخدام زر جوجل أعلاه.';
+        document.getElementById('status').innerText = 'برجاء الضغط على زر تسجيل الدخول أعلاه.';
       }
     };
   </script>
