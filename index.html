@@ -2,46 +2,23 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ربط Google Drive</title>
+  <title>اختبار الاتصال</title>
 </head>
 <body>
-  <h2> الدخول إلى Google </h2>
-  <button id="loginBtn">تسجيل الدخول</button>
+  <h2>اختبار إرسال رسالة</h2>
+  <button onclick="sendTest()">إرسال</button>
 
   <script>
-    const CLIENT_ID = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
-    const REDIRECT_URI = 'https://ckashe.github.io/Chat/';
-    const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
-
-    const loginBtn = document.getElementById('loginBtn');
-
-    // عند وجود access_token في الرابط
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-
-    if (accessToken) {
-      document.body.innerHTML += "<p>✅ تم الحصول على Access Token</p>";
-
-      // إرسال التوكن إلى السيرفر
-      fetch('http://10.71.152.114:8080/save_token', {
+    function sendTest() {
+      fetch('http://10.71.152.114:8080/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_token: accessToken })
+        body: JSON.stringify({ message: "دي رسالة اختبار من HTML" })
       })
-      .then(response => response.text())
-      .then(data => {
-        document.body.innerHTML += `<p>📤 تم إرسال التوكن إلى السيرفر: ${data}</p>`;
-      })
-      .catch(error => {
-        document.body.innerHTML += `<p>❌ فشل إرسال التوكن</p>`;
-        console.error(error);
-      });
+      .then(res => res.text())
+      .then(data => alert('✅ رد السيرفر: ' + data))
+      .catch(err => alert('❌ فشل الاتصال: ' + err));
     }
-
-    loginBtn.onclick = function() {
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${SCOPE}&prompt=consent`;
-      window.location.href = authUrl;
-    };
   </script>
 </body>
 </html>
