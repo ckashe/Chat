@@ -2,22 +2,24 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>اختبار الاتصال</title>
+  <title>اختبار إرسال</title>
 </head>
 <body>
-  <h2>اختبار إرسال رسالة</h2>
-  <button onclick="sendTest()">إرسال</button>
+  <h3>🔁 إرسال رسالة إلى السيرفر</h3>
+  <button onclick="sendMessage()">إرسال</button>
 
   <script>
-    function sendTest() {
-      fetch('http://10.71.152.114:8080/test', {
+    function sendMessage() {
+      fetch('http://10.71.152.114:8080', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "دي رسالة اختبار من HTML" })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: 'تم الإرسال من الهاتف ✅' })
       })
       .then(res => res.text())
-      .then(data => alert('✅ رد السيرفر: ' + data))
-      .catch(err => alert('❌ فشل الاتصال: ' + err));
+      .then(txt => alert('📨 الرد من السيرفر:\n' + txt))
+      .catch(err => alert('❌ خطأ في الاتصال بالسيرفر'));
     }
   </script>
 </body>
