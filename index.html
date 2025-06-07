@@ -1,49 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Google Drive Images Fetcher</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     #imagesList { margin-top: 20px; }
     li { margin-bottom: 8px; }
-    #loginBtn {
-      padding: 10px 20px;
-      background: #4285f4;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-    }
+    .btn { padding: 10px 20px; background: #4285f4; color: white; border: none; cursor: pointer; border-radius: 5px; }
   </style>
 </head>
 <body>
-  <h2>تسجيل دخول جوجل لجلب الصور من Google Drive</h2>
+  <h2>تسجيل الدخول عبر جوجل لجلب الصور من Google Drive</h2>
 
-  <button id="loginBtn">تسجيل الدخول عبر Google</button>
-  <div id="status" style="margin-top:20px;">برجاء تسجيل الدخول...</div>
+  <button class="btn" onclick="loginWithGoogle()">تسجيل الدخول</button>
+
+  <div id="status" style="margin-top:20px;">لم يتم تسجيل الدخول بعد</div>
   <ul id="imagesList"></ul>
 
   <script>
-    const clientId = "869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com";
-    const redirectUri = "https://ckashe.github.io/Chat/"; // مهم جدًا
+    const clientId = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
+    const redirectUri = 'https://ckashe.github.io/Chat/';
+    const scope = 'https://www.googleapis.com/auth/drive.readonly';
 
-    // لما المستخدم يضغط تسجيل الدخول
-    document.getElementById("loginBtn").addEventListener("click", () => {
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=https://www.googleapis.com/auth/drive.readonly&include_granted_scopes=true&state=login`;
+    function loginWithGoogle() {
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&include_granted_scopes=true&state=login`;
       window.location.href = authUrl;
-    });
+    }
 
-    // جلب access_token من URL بعد الرجوع من Google
     function getAccessTokenFromUrl() {
       const hash = window.location.hash.substr(1);
       const params = new URLSearchParams(hash);
       return params.get('access_token');
     }
 
-    // جلب الصور من Google Drive API
     async function fetchDriveImages(token) {
-      document.getElementById('status').innerText = 'جاري تحميل الصور...';
+      document.getElementById('status').innerText = 'جاري تحميل الصور من Google Drive...';
+
       const res = await fetch('https://www.googleapis.com/drive/v3/files?' + new URLSearchParams({
         pageSize: '50',
         fields: 'files(id,name,mimeType,webContentLink)',
@@ -55,7 +48,7 @@
       });
 
       if (!res.ok) {
-        document.getElementById('status').innerText = 'خطأ في جلب الصور: ' + res.statusText;
+        document.getElementById('status').innerText = 'فشل في تحميل الصور: ' + res.statusText;
         return;
       }
 
@@ -67,8 +60,7 @@
         return;
       }
 
-      document.getElementById('status').innerText = 'تم تحميل الصور:';
-
+      document.getElementById('status').innerText = 'تم تحميل الصور بنجاح:';
       const list = document.getElementById('imagesList');
       list.innerHTML = '';
 
@@ -83,15 +75,12 @@
       });
     }
 
-    // عند فتح الصفحة
     window.onload = () => {
       const token = getAccessTokenFromUrl();
-
       if (token) {
-        history.replaceState(null, '', window.location.pathname); // نظف الرابط
+        // تنظيف الرابط من التوكن
+        history.replaceState(null, '', window.location.pathname);
         fetchDriveImages(token);
-      } else {
-        document.getElementById('status').innerText = 'برجاء الضغط على زر تسجيل الدخول أعلاه.';
       }
     };
   </script>
