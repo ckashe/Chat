@@ -2,82 +2,76 @@
 <html lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>جلب صور Google Drive</title>
+  <title>عرض صور Google Drive</title>
   <style>
-    body { font-family: Arial; margin: 30px; direction: rtl; }
-    .btn { background: #4285f4; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
-    ul { margin-top: 20px; }
-    li { margin-bottom: 10px; }
+    body { font-family: Arial; direction: rtl; margin: 30px; }
+    button { background: #0b72ec; color: #fff; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; }
+    ul { list-style: none; padding: 0; margin-top: 20px; }
+    li { margin: 10px 0; }
+    img { max-width: 300px; border: 1px solid #ccc; padding: 5px; border-radius: 5px; }
   </style>
 </head>
 <body>
-  <h2>تسجيل الدخول إلى Google</h2>
-  <button class="btn" onclick="login()">تسجيل الدخول</button>
-  <div id="status"></div>
-  <ul id="imagesList"></ul>
+  <h2>تسجيل الدخول لحساب Google</h2>
+  <button onclick="login()">تسجيل الدخول</button>
+  <p id="status"></p>
+  <ul id="imageList"></ul>
 
   <script>
-    const clientId = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
-    const redirectUri = 'http://localhost';
-    const scope = 'https://www.googleapis.com/auth/drive.readonly';
+    const CLIENT_ID = "869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com";
+    const REDIRECT_URI = "http://localhost";
+    const SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 
     function login() {
-      const url = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&include_granted_scopes=true&state=auth`;
-      window.location.href = url;
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPE)}&include_granted_scopes=true&prompt=consent`;
+      window.location.href = authUrl;
     }
 
-    function getAccessTokenFromUrl() {
+    function getTokenFromUrl() {
       const hash = window.location.hash.substr(1);
       const params = new URLSearchParams(hash);
-      return params.get('access_token');
+      return params.get("access_token");
     }
 
-    async function fetchDriveImages(token) {
-      document.getElementById('status').innerText = 'جاري تحميل الصور...';
-
-      const res = await fetch('https://www.googleapis.com/drive/v3/files?' + new URLSearchParams({
-        pageSize: '50',
-        fields: 'files(id,name,mimeType,webViewLink)',
-        q: "mimeType contains 'image/'"
-      }), {
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
+    async function loadImages(token) {
+      document.getElementById("status").innerText = "جاري جلب الصور...";
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=mimeType contains 'image/'&fields=files(id,name,thumbnailLink,webViewLink)&pageSize=20`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (!res.ok) {
-        document.getElementById('status').innerText = 'فشل التحميل: ' + res.statusText;
+        document.getElementById("status").innerText = "فشل في جلب الصور.";
         return;
       }
 
       const data = await res.json();
-      const files = data.files;
+      const list = document.getElementById("imageList");
+      list.innerHTML = "";
 
-      if (!files.length) {
-        document.getElementById('status').innerText = 'لا توجد صور.';
+      if (!data.files.length) {
+        document.getElementById("status").innerText = "لا توجد صور في Drive.";
         return;
       }
 
-      document.getElementById('status').innerText = 'تم تحميل الصور:';
-      const list = document.getElementById('imagesList');
-      list.innerHTML = '';
-
-      files.forEach(file => {
-        const li = document.createElement('li');
-        const link = document.createElement('a');
-        link.href = file.webViewLink;
-        link.target = '_blank';
-        link.textContent = file.name;
-        li.appendChild(link);
+      document.getElementById("status").innerText = "تم جلب الصور:";
+      data.files.forEach(file => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = file.webViewLink;
+        a.target = "_blank";
+        const img = document.createElement("img");
+        img.src = file.thumbnailLink;
+        a.appendChild(img);
+        li.appendChild(a);
         list.appendChild(li);
       });
     }
 
     window.onload = () => {
-      const token = getAccessTokenFromUrl();
+      const token = getTokenFromUrl();
       if (token) {
         history.replaceState(null, '', window.location.pathname);
-        fetchDriveImages(token);
+        loadImages(token);
       }
     };
   </script>
