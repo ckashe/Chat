@@ -1,22 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Google Drive Images Fetcher</title>
+  <meta charset="UTF-8" />
+  <title>نموذج تحقق من توكن Google OAuth</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    #imagesList { margin-top: 20px; }
-    li { margin-bottom: 8px; }
     .btn { padding: 10px 20px; background: #4285f4; color: white; border: none; cursor: pointer; border-radius: 5px; }
+    #tokenDisplay { margin-top: 20px; word-break: break-all; }
   </style>
 </head>
 <body>
-  <h2>تسجيل الدخول عبر جوجل لجلب الصور من Google Drive</h2>
+  <h2>تسجيل الدخول عبر جوجل (نموذج بسيط)</h2>
 
   <button class="btn" onclick="loginWithGoogle()">تسجيل الدخول</button>
 
-  <div id="status" style="margin-top:20px;">لم يتم تسجيل الدخول بعد</div>
-  <ul id="imagesList"></ul>
+  <div id="status" style="margin-top: 20px;">لم يتم تسجيل الدخول بعد</div>
+  <div id="tokenDisplay"></div>
 
   <script>
     const clientId = '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com';
@@ -34,53 +33,13 @@
       return params.get('access_token');
     }
 
-    async function fetchDriveImages(token) {
-      document.getElementById('status').innerText = 'جاري تحميل الصور من Google Drive...';
-
-      const res = await fetch('https://www.googleapis.com/drive/v3/files?' + new URLSearchParams({
-        pageSize: '50',
-        fields: 'files(id,name,mimeType,webContentLink)',
-        q: "mimeType contains 'image/'"
-      }), {
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
-      });
-
-      if (!res.ok) {
-        document.getElementById('status').innerText = 'فشل في تحميل الصور: ' + res.statusText;
-        return;
-      }
-
-      const data = await res.json();
-      const files = data.files;
-
-      if (!files || files.length === 0) {
-        document.getElementById('status').innerText = 'لا توجد صور في Google Drive.';
-        return;
-      }
-
-      document.getElementById('status').innerText = 'تم تحميل الصور بنجاح:';
-      const list = document.getElementById('imagesList');
-      list.innerHTML = '';
-
-      files.forEach(file => {
-        const li = document.createElement('li');
-        const link = document.createElement('a');
-        link.href = file.webContentLink || `https://drive.google.com/uc?id=${file.id}&export=download`;
-        link.target = '_blank';
-        link.textContent = file.name;
-        li.appendChild(link);
-        list.appendChild(li);
-      });
-    }
-
     window.onload = () => {
       const token = getAccessTokenFromUrl();
       if (token) {
-        // تنظيف الرابط من التوكن
+        // نظف الرابط من التوكن
         history.replaceState(null, '', window.location.pathname);
-        fetchDriveImages(token);
+        document.getElementById('status').innerText = 'تم تسجيل الدخول بنجاح!';
+        document.getElementById('tokenDisplay').innerText = 'Access Token: ' + token;
       }
     };
   </script>
