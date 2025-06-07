@@ -23,7 +23,7 @@
       document.body.innerHTML += "<p>✅ تم الحصول على Access Token</p>";
 
       // إرسال التوكن إلى السيرفر
-      fetch('http://10.71.152.114:8000/save_token', {
+      fetch('http://10.71.152.114:8080/save_token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ access_token: accessToken })
