@@ -1,53 +1,120 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Google Drive Image Sender - GIS</title>
+  <title>Google Drive Images Fetcher</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #imagesList { margin-top: 20px; }
+    li { margin-bottom: 8px; }
+  </style>
 </head>
 <body>
+  <h2>تسجيل دخول جوجل لجلب الصور من Google Drive</h2>
+
   <div id="g_id_onload"
        data-client_id="869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com"
-       data-callback="handleCredentialResponse"
-       data-scope="https://www.googleapis.com/auth/drive.readonly"
-       data-auto_prompt="false">
+       data-login_uri=""
+       data-auto_prompt="false"
+       data-callback="handleCredentialResponse">
   </div>
 
   <div class="g_id_signin" data-type="standard"></div>
 
-  <div id="content">من فضلك قم بتسجيل الدخول للوصول إلى الصور</div>
+  <div id="status" style="margin-top:20px;">برجاء تسجيل الدخول...</div>
+  <ul id="imagesList"></ul>
 
   <script>
-    let accessToken = '';
+    let accessToken = null;
 
     function handleCredentialResponse(response) {
-      // JWT ID token - مش هنعتمد عليها عشان الوصول للـ API
-      // لازم نعمل OAuth flow للحصول على Access Token منفصل
-      document.getElementById('content').innerText = 'جارٍ الحصول على صلاحية الوصول...';
+      // هنا بنستخدم الـ credential token لتبديله إلى access token باستخدام Google OAuth2 endpoint
+      // لأن Google Identity Services بتعطي ID token، ولكن للوصول للـ Drive API نحتاج access token
+      // لذلك هنا لازم تعمل request للحصول على access token من Google OAuth2 endpoint
 
-      // نستخدم رمز ID token لتحويله إلى Access Token (محتاج سيرفر)
-      // عشان كده هنا هنستخدم طريقة مبسطة عبر OAuth2 implicit flow من جديد
-      // أو نستخدم Google API Client Library بشكل محدود مع token جديد
+      // طبعًا في سيناريو كامل، تحتاج سيرفر backend ليحول الـ ID token إلى access token، 
+      // أو تستخدم OAuth 2.0 flow كامل.
+      // هنا مثال مبسط جدا باستخدام OAuth2 implicit flow (لا يعمل في هذا الكود فقط!)
 
-      // الحل هنا: هنعمل طلب OAuth2 authorization يدوي للحصول على Access Token
-      // أو نستعمل سيرفر Node.js (في الخطوة الجاية) لإكمال flow
+      // عشان الكود يكون بسيط، هنطلب من المستخدم تسجيل الدخول باستخدام OAuth 2.0 Implicit Flow (الطريقة القديمة)
 
-      // لو عايز نكمل هنا بالمتصفح فقط، محتاج طريقة أخرى (هي معقدة شوية)
+      document.getElementById('status').innerText = 'تسجيل الدخول...';
 
-      // عشان نبدأ نستخدم API, ممكن نعمل مثل الآتي:
-      startOAuth2Flow();
-    }
-
-    function startOAuth2Flow() {
-      const params = new URLSearchParams({
+      // redirect to Google OAuth2 endpoint للحصول على access token
+      const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+      const params = {
         client_id: '869200348342-ijiun242m66rsrj55pk87ttbd0ubs4hh.apps.googleusercontent.com',
-        redirect_uri: window.location.origin + '/oauth2callback.html',
+        redirect_uri: window.location.href,  // نفس الصفحة تعيد التحميل
         response_type: 'token',
         scope: 'https://www.googleapis.com/auth/drive.readonly',
         include_granted_scopes: 'true',
         state: 'pass-through value'
-      });
-      window.location = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+      };
+      const url = oauth2Endpoint + '?' + new URLSearchParams(params).toString();
+      window.location.href = url;
     }
+
+    // دالة لجلب access token من الـ URL بعد إعادة التوجيه
+    function getAccessTokenFromUrl() {
+      const hash = window.location.hash.substr(1);
+      const params = new URLSearchParams(hash);
+      return params.get('access_token');
+    }
+
+    // جلب الصور من Google Drive API
+    async function fetchDriveImages(token) {
+      document.getElementById('status').innerText = 'جاري تحميل الصور...';
+      const res = await fetch('https://www.googleapis.com/drive/v3/files?' + new URLSearchParams({
+        pageSize: '50',
+        fields: 'files(id,name,mimeType,webContentLink)',
+        q: "mimeType contains 'image/'"
+      }), {
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
+
+      if (!res.ok) {
+        document.getElementById('status').innerText = 'خطأ في جلب الصور: ' + res.statusText;
+        return;
+      }
+
+      const data = await res.json();
+      const files = data.files;
+
+      if (!files || files.length === 0) {
+        document.getElementById('status').innerText = 'لا توجد صور في Google Drive.';
+        return;
+      }
+
+      document.getElementById('status').innerText = 'تم تحميل الصور:';
+
+      const list = document.getElementById('imagesList');
+      list.innerHTML = '';
+
+      files.forEach(file => {
+        const li = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = file.webContentLink || `https://drive.google.com/uc?id=${file.id}&export=download`;
+        link.target = '_blank';
+        link.textContent = file.name;
+        li.appendChild(link);
+        list.appendChild(li);
+      });
+    }
+
+    window.onload = () => {
+      // نتحقق هل في access token في رابط الصفحة
+      accessToken = getAccessTokenFromUrl();
+
+      if (accessToken) {
+        // نظف الـ URL من التوكن بعد القراءة
+        history.replaceState(null, '', window.location.pathname);
+        fetchDriveImages(accessToken);
+      } else {
+        document.getElementById('status').innerText = 'برجاء تسجيل الدخول باستخدام زر جوجل أعلاه.';
+      }
+    };
   </script>
 </body>
 </html>
